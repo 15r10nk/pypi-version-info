@@ -190,6 +190,14 @@
       box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.35) inset;
     }
 
+    .pill.unavailable {
+      color: #64748b;
+      border-color: #475569;
+      background: #0f172a;
+      opacity: 0.75;
+      cursor: not-allowed;
+    }
+
     .foot {
       margin-top: 0.9rem;
       color: var(--muted);
@@ -257,8 +265,12 @@
 
     const pythonClassifierPrefix = 'Programming Language :: Python :: ';
     const urlParams = new URLSearchParams(window.location.search);
+    const initialClassifiers = uniqSorted([
+      ...urlParams.getAll('classifier').map(v => v.trim()).filter(Boolean),
+      ...(urlParams.get('classifiers') || '').split(',').map(v => v.trim()).filter(Boolean)
+    ]);
     let currentPackage = '';
-    let activeClassifierFilter = (urlParams.get('classifier') || '').trim();
+    let activeClassifierFilters = new Set(initialClassifiers);
     let loadedVersionCount = 0;
 
     function setStatus(msg, type = '') {
@@ -299,10 +311,10 @@
         params.delete('package');
       }
 
-      if (activeClassifierFilter) {
-        params.set('classifier', activeClassifierFilter);
-      } else {
-        params.delete('classifier');
+      params.delete('classifier');
+      params.delete('classifiers');
+      for (const classifier of uniqSorted([...activeClassifierFilters])) {
+        params.append('classifier', classifier);
       }
 
       const query = params.toString();
@@ -313,9 +325,10 @@
     function setDoneStatus() {
       const rows = Array.from(rowsEl.querySelectorAll('tr'));
       const visible = rows.filter(row => !row.hidden).length;
-      if (activeClassifierFilter) {
+      if (activeClassifierFilters.size) {
+        const filters = uniqSorted([...activeClassifierFilters]).join(' + ');
         setStatus(
-          `Done. Loaded ${loadedVersionCount} versions. Filter: ${activeClassifierFilter} (${visible}/${loadedVersionCount}).`,
+          `Done. Loaded ${loadedVersionCount} versions. Filters: ${filters} (${visible}/${loadedVersionCount}).`,
           'ok'
         );
       } else {
@@ -328,7 +341,7 @@
       return values
         .map(v => {
           const safe = escapeHtml(v);
-          const activeClass = activeClassifierFilter === v ? ' active' : '';
+          const activeClass = activeClassifierFilters.has(v) ? ' active' : '';
           return `<button type="button" class="pill clickable${activeClass}" data-classifier="${safe}">${safe}</button>`;
         })
         .join('');
@@ -336,13 +349,32 @@
 
     function applyClassifierFilter() {
       const rows = Array.from(rowsEl.querySelectorAll('tr'));
+      const requiredFilters = [...activeClassifierFilters];
       for (const row of rows) {
         const classifiers = (row.dataset.classifiers || '').split('\n').filter(Boolean);
-        row.hidden = Boolean(activeClassifierFilter) && !classifiers.includes(activeClassifierFilter);
+        row.hidden = requiredFilters.length > 0 && !requiredFilters.every((filter) => classifiers.includes(filter));
+      }
+
+      const classifiersInVisibleRows = new Set();
+      for (const row of rows) {
+        if (row.hidden) continue;
+        const classifiers = (row.dataset.classifiers || '').split('\n').filter(Boolean);
+        for (const classifier of classifiers) classifiersInVisibleRows.add(classifier);
       }
 
       document.querySelectorAll('[data-classifier]').forEach((node) => {
-        node.classList.toggle('active', node.dataset.classifier === activeClassifierFilter);
+        node.classList.toggle('active', activeClassifierFilters.has(node.dataset.classifier || ''));
+      });
+
+      metaOverall.querySelectorAll('[data-classifier]').forEach((node) => {
+        const classifier = node.dataset.classifier || '';
+        const isSelected = activeClassifierFilters.has(classifier);
+        const isUnavailable = !isSelected && !classifiersInVisibleRows.has(classifier);
+        node.classList.toggle('unavailable', isUnavailable);
+        if (node instanceof HTMLButtonElement) {
+          node.disabled = isUnavailable;
+          node.setAttribute('aria-disabled', String(isUnavailable));
+        }
       });
 
       updateQueryParams();
@@ -412,7 +444,12 @@
     }
 
     function toggleClassifierFilter(classifier) {
-      activeClassifierFilter = activeClassifierFilter === classifier ? '' : classifier;
+      if (!classifier) return;
+      if (activeClassifierFilters.has(classifier)) {
+        activeClassifierFilters.delete(classifier);
+      } else {
+        activeClassifierFilters.add(classifier);
+      }
       applyClassifierFilter();
     }
 
@@ -436,7 +473,7 @@
       const previousPackage = (currentPackage || '').toLowerCase();
       const nextPackage = pkg.toLowerCase();
       if (previousPackage && previousPackage !== nextPackage) {
-        activeClassifierFilter = '';
+        activeClassifierFilters = new Set();
       }
       currentPackage = pkg;
       updateQueryParams();
