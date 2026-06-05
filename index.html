@@ -1,0 +1,536 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PyPI All Versions Python Support Viewer</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #111827;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --accent: #22d3ee;
+      --border: #334155;
+      --ok: #22c55e;
+      --warn: #f59e0b;
+      --err: #ef4444;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      background: radial-gradient(circle at 20% -20%, #1e293b 0, var(--bg) 45%);
+      color: var(--text);
+      min-height: 100vh;
+      display: grid;
+      place-items: start center;
+      padding: 2rem 1rem;
+    }
+
+    .app {
+      width: min(960px, 100%);
+      background: color-mix(in oklab, var(--panel) 92%, black);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.2rem;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    }
+
+    h1 {
+      margin: 0 0 0.35rem;
+      font-size: 1.35rem;
+      letter-spacing: 0.2px;
+    }
+
+    .sub {
+      margin: 0 0 1rem;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    form {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 0.65rem;
+      margin-bottom: 1rem;
+    }
+
+    @media (max-width: 740px) {
+      form { grid-template-columns: 1fr; }
+      button { width: 100%; }
+    }
+
+    label {
+      display: grid;
+      gap: 0.35rem;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    input {
+      border: 1px solid var(--border);
+      background: #0b1220;
+      color: var(--text);
+      border-radius: 10px;
+      padding: 0.7rem 0.8rem;
+      font-size: 0.95rem;
+      outline: none;
+    }
+
+    input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.18);
+    }
+
+    button {
+      border: 0;
+      background: linear-gradient(135deg, #06b6d4, #0284c7);
+      color: white;
+      border-radius: 10px;
+      padding: 0.75rem 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      align-self: end;
+      min-width: 130px;
+    }
+
+    button[disabled] { opacity: 0.6; cursor: not-allowed; }
+
+    .status {
+      min-height: 1.5rem;
+      font-size: 0.92rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .status.ok { color: var(--ok); }
+    .status.warn { color: var(--warn); }
+    .status.err { color: var(--err); }
+
+    .meta {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.7rem;
+      margin-bottom: 0.85rem;
+    }
+
+    .meta-card {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 0.6rem 0.7rem;
+      background: rgba(15, 23, 42, 0.65);
+    }
+
+    .meta-card .label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+
+    .meta-card .value {
+      margin-top: 0.2rem;
+      font-weight: 600;
+      overflow-wrap: anywhere;
+    }
+
+    .table-wrap {
+      overflow: auto;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 900px;
+      background: #0b1220;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 0.65rem 0.75rem;
+      border-bottom: 1px solid #263449;
+      vertical-align: top;
+      font-size: 0.92rem;
+    }
+
+    th {
+      background: #111b30;
+      color: #cbd5e1;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 0.18rem 0.45rem;
+      border-radius: 999px;
+      border: 1px solid #344256;
+      background: #111b30;
+      font-size: 0.8rem;
+      color: #cbd5e1;
+      margin: 0.1rem 0.15rem 0.1rem 0;
+    }
+
+    .pill.clickable {
+      cursor: pointer;
+    }
+
+    button.pill {
+      font: inherit;
+    }
+
+    .pill.active {
+      border-color: #22d3ee;
+      color: #22d3ee;
+      box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.35) inset;
+    }
+
+    .foot {
+      margin-top: 0.9rem;
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+
+    a { color: #67e8f9; }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <h1>PyPI package version info</h1>
+    <p class="sub">Enter a package, then the page checks all released versions on PyPI and shows Python support per version.</p>
+
+    <form id="lookup-form">
+      <label>
+        Package name
+        <input id="pkg" name="pkg" placeholder="requests" required />
+      </label>
+      <button id="submit" type="submit">Scan all versions</button>
+    </form>
+
+    <div id="status" class="status" aria-live="polite"></div>
+
+    <section id="meta" class="meta" hidden>
+      <article class="meta-card">
+        <div class="label">Package</div>
+        <div class="value" id="meta-package">-</div>
+      </article>
+      <article class="meta-card">
+        <div class="label">Versions found</div>
+        <div class="value" id="meta-total">-</div>
+      </article>
+      <article class="meta-card">
+        <div class="label">Overall Python classifiers</div>
+        <div class="value" id="meta-overall">-</div>
+      </article>
+    </section>
+
+    <div class="table-wrap" id="table-wrap" hidden>
+      <table>
+        <thead>
+          <tr>
+            <th>Version</th>
+            <th>Requires-Python</th>
+            <th>Classifiers (Python)</th>
+            <th>Release file tags</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="support-rows"></tbody>
+      </table>
+    </div>
+
+    <p class="foot">
+      Uses PyPI JSON API endpoint:
+      <a href="https://docs.pypi.org/api/json/" target="_blank" rel="noreferrer noopener">docs.pypi.org/api/json</a>
+    </p>
+  </main>
+
+  <script>
+    const form = document.getElementById('lookup-form');
+    const submitBtn = document.getElementById('submit');
+    const statusEl = document.getElementById('status');
+    const rowsEl = document.getElementById('support-rows');
+    const tableWrap = document.getElementById('table-wrap');
+    const metaSection = document.getElementById('meta');
+
+    const metaPackage = document.getElementById('meta-package');
+    const metaTotal = document.getElementById('meta-total');
+    const metaOverall = document.getElementById('meta-overall');
+
+    const pythonClassifierPrefix = 'Programming Language :: Python :: ';
+    const urlParams = new URLSearchParams(window.location.search);
+    let currentPackage = '';
+    let activeClassifierFilter = (urlParams.get('classifier') || '').trim();
+    let loadedVersionCount = 0;
+
+    function setStatus(msg, type = '') {
+      statusEl.className = `status ${type}`.trim();
+      statusEl.textContent = msg;
+    }
+
+    function parseSupportedFromClassifiers(classifiers = []) {
+      return classifiers
+        .filter(c => c.startsWith(pythonClassifierPrefix))
+        .map(c => c.replace(pythonClassifierPrefix, '').trim())
+        .filter(v => v && !v.toLowerCase().includes('implementation'));
+    }
+
+    function uniqSorted(arr) {
+      return [...new Set(arr)].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    }
+
+    function makePills(values) {
+      if (!values.length) return '<span class="pill">Not specified</span>';
+      return values.map(v => `<span class="pill">${v}</span>`).join('');
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function updateQueryParams() {
+      const params = new URLSearchParams(window.location.search);
+      if (currentPackage) {
+        params.set('package', currentPackage);
+      } else {
+        params.delete('package');
+      }
+
+      if (activeClassifierFilter) {
+        params.set('classifier', activeClassifierFilter);
+      } else {
+        params.delete('classifier');
+      }
+
+      const query = params.toString();
+      const nextUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname;
+      window.history.replaceState(null, '', nextUrl);
+    }
+
+    function setDoneStatus() {
+      const rows = Array.from(rowsEl.querySelectorAll('tr'));
+      const visible = rows.filter(row => !row.hidden).length;
+      if (activeClassifierFilter) {
+        setStatus(
+          `Done. Loaded ${loadedVersionCount} versions. Filter: ${activeClassifierFilter} (${visible}/${loadedVersionCount}).`,
+          'ok'
+        );
+      } else {
+        setStatus(`Done. Loaded ${loadedVersionCount} versions.`, 'ok');
+      }
+    }
+
+    function renderClassifierButtons(values) {
+      if (!values.length) return '<span class="pill">Not specified</span>';
+      return values
+        .map(v => {
+          const safe = escapeHtml(v);
+          const activeClass = activeClassifierFilter === v ? ' active' : '';
+          return `<button type="button" class="pill clickable${activeClass}" data-classifier="${safe}">${safe}</button>`;
+        })
+        .join('');
+    }
+
+    function applyClassifierFilter() {
+      const rows = Array.from(rowsEl.querySelectorAll('tr'));
+      for (const row of rows) {
+        const classifiers = (row.dataset.classifiers || '').split('\n').filter(Boolean);
+        row.hidden = Boolean(activeClassifierFilter) && !classifiers.includes(activeClassifierFilter);
+      }
+
+      document.querySelectorAll('[data-classifier]').forEach((node) => {
+        node.classList.toggle('active', node.dataset.classifier === activeClassifierFilter);
+      });
+
+      updateQueryParams();
+      setDoneStatus();
+    }
+
+    function addRow(version, requiresPython, classifierVersions, filePythonHints, state = 'ok') {
+      const tr = document.createElement('tr');
+
+      const versionTd = document.createElement('td');
+      const requiresTd = document.createElement('td');
+      const classifiersTd = document.createElement('td');
+      const filesTd = document.createElement('td');
+      const statusTd = document.createElement('td');
+
+      versionTd.textContent = version;
+      requiresTd.innerHTML = requiresPython
+        ? `<span class="pill">${escapeHtml(requiresPython)}</span>`
+        : '<span class="pill">Not specified</span>';
+      classifiersTd.innerHTML = renderClassifierButtons(classifierVersions);
+      filesTd.innerHTML = makePills(filePythonHints.map(escapeHtml));
+      statusTd.innerHTML = state === 'ok'
+        ? '<span class="pill">OK</span>'
+        : '<span class="pill">Unavailable</span>';
+      tr.dataset.classifiers = classifierVersions.join('\n');
+
+      tr.append(versionTd, requiresTd, classifiersTd, filesTd, statusTd);
+      rowsEl.appendChild(tr);
+    }
+
+    function sortVersionsDescending(versions) {
+      return [...versions].sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+    }
+
+    async function loadVersion(pkg, version) {
+      const url = `https://pypi.org/pypi/${encodeURIComponent(pkg)}/${encodeURIComponent(version)}/json`;
+      const response = await fetch(url, { headers: { 'Accept': 'application/json' } });
+
+      if (!response.ok) {
+        return {
+          version,
+          requiresPython: '',
+          classifierVersions: [],
+          filePythonHints: [],
+          state: 'unavailable'
+        };
+      }
+
+      const data = await response.json();
+      const info = data?.info || {};
+      const requiresPython = (info.requires_python || '').trim();
+      const classifierVersions = uniqSorted(parseSupportedFromClassifiers(info.classifiers || []));
+      const releaseFiles = Array.isArray(data?.urls) ? data.urls : [];
+      const filePythonHints = uniqSorted(
+        releaseFiles
+          .map(u => (u && typeof u.python_version === 'string') ? u.python_version.trim() : '')
+          .filter(Boolean)
+      );
+
+      return {
+        version,
+        requiresPython,
+        classifierVersions,
+        filePythonHints,
+        state: 'ok'
+      };
+    }
+
+    function toggleClassifierFilter(classifier) {
+      activeClassifierFilter = activeClassifierFilter === classifier ? '' : classifier;
+      applyClassifierFilter();
+    }
+
+    rowsEl.addEventListener('click', (event) => {
+      const classifierBtn = event.target.closest('[data-classifier]');
+      if (!classifierBtn) return;
+      toggleClassifierFilter(classifierBtn.dataset.classifier || '');
+    });
+
+    metaOverall.addEventListener('click', (event) => {
+      const classifierBtn = event.target.closest('[data-classifier]');
+      if (!classifierBtn) return;
+      toggleClassifierFilter(classifierBtn.dataset.classifier || '');
+    });
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+
+      const pkg = document.getElementById('pkg').value.trim();
+      if (!pkg) return;
+      const previousPackage = (currentPackage || '').toLowerCase();
+      const nextPackage = pkg.toLowerCase();
+      if (previousPackage && previousPackage !== nextPackage) {
+        activeClassifierFilter = '';
+      }
+      currentPackage = pkg;
+      updateQueryParams();
+
+      rowsEl.innerHTML = '';
+      tableWrap.hidden = true;
+      metaSection.hidden = true;
+      submitBtn.disabled = true;
+      setStatus('Loading package release list from PyPI…');
+
+      const url = `https://pypi.org/pypi/${encodeURIComponent(pkg)}/json`;
+
+      try {
+        const response = await fetch(url, { headers: { 'Accept': 'application/json' } });
+        if (!response.ok) {
+          throw new Error(response.status === 404
+            ? 'Package not found on PyPI.'
+            : `PyPI request failed (${response.status}).`);
+        }
+
+        const data = await response.json();
+        const info = data?.info || {};
+        const releases = data?.releases && typeof data.releases === 'object' ? data.releases : {};
+        const versions = sortVersionsDescending(Object.keys(releases));
+
+        if (!versions.length) {
+          throw new Error('No releases found for this package.');
+        }
+
+        metaPackage.textContent = info.name || pkg;
+        metaTotal.textContent = String(versions.length);
+        metaOverall.textContent = 'Collecting…';
+        metaSection.hidden = false;
+
+        const queue = [...versions];
+        const results = [];
+        let done = 0;
+        const parallelism = Math.min(8, versions.length);
+
+        setStatus(`Scanning ${versions.length} versions… (0/${versions.length})`, 'warn');
+
+        async function worker() {
+          while (queue.length) {
+            const version = queue.shift();
+            if (!version) break;
+
+            const result = await loadVersion(pkg, version);
+            results.push(result);
+            done += 1;
+            setStatus(`Scanning ${versions.length} versions… (${done}/${versions.length})`, 'warn');
+          }
+        }
+
+        await Promise.all(Array.from({ length: parallelism }, () => worker()));
+
+        const versionOrder = new Map(versions.map((v, i) => [v, i]));
+        results.sort((a, b) => (versionOrder.get(a.version) ?? 0) - (versionOrder.get(b.version) ?? 0));
+
+        const overallClassifiers = uniqSorted(results.flatMap(r => r.classifierVersions));
+        metaOverall.innerHTML = renderClassifierButtons(overallClassifiers);
+
+        for (const result of results) {
+          addRow(
+            result.version,
+            result.requiresPython,
+            result.classifierVersions,
+            result.filePythonHints,
+            result.state
+          );
+        }
+
+        tableWrap.hidden = false;
+        loadedVersionCount = results.length;
+        applyClassifierFilter();
+      } catch (err) {
+        setStatus(err?.message || 'Failed to load package info.', 'err');
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+
+    // Pre-fill with an example.
+    const initialPackage = (urlParams.get('package') || urlParams.get('pkg') || 'requests').trim();
+    document.getElementById('pkg').value = initialPackage;
+    if (urlParams.get('package') || urlParams.get('pkg')) {
+      form.requestSubmit();
+    }
+  </script>
+</body>
+</html>
