@@ -111,7 +111,7 @@
 
     .meta {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: minmax(0, 1fr);
       gap: 0.7rem;
       margin-bottom: 0.85rem;
     }
@@ -216,14 +216,6 @@
 
     <section id="meta" class="meta" hidden>
       <article class="meta-card">
-        <div class="label">Package</div>
-        <div class="value" id="meta-package">-</div>
-      </article>
-      <article class="meta-card">
-        <div class="label">Versions found</div>
-        <div class="value" id="meta-total">-</div>
-      </article>
-      <article class="meta-card">
         <div class="label">Overall Python classifiers</div>
         <div class="value" id="meta-overall">-</div>
       </article>
@@ -247,6 +239,9 @@
     <p class="foot">
       Uses PyPI JSON API endpoint:
       <a href="https://docs.pypi.org/api/json/" target="_blank" rel="noreferrer noopener">docs.pypi.org/api/json</a>
+      ·
+      Source code:
+      <a href="https://github.com/15r10nk/pypi-version-info" target="_blank" rel="noreferrer noopener">github.com/15r10nk/pypi-version-info</a>
     </p>
   </main>
 
@@ -258,8 +253,6 @@
     const tableWrap = document.getElementById('table-wrap');
     const metaSection = document.getElementById('meta');
 
-    const metaPackage = document.getElementById('meta-package');
-    const metaTotal = document.getElementById('meta-total');
     const metaOverall = document.getElementById('meta-overall');
 
     const pythonClassifierPrefix = 'Programming Language :: Python :: ';
@@ -473,8 +466,6 @@
           throw new Error('No releases found for this package.');
         }
 
-        metaPackage.textContent = info.name || pkg;
-        metaTotal.textContent = String(versions.length);
         metaOverall.textContent = 'Collecting…';
         metaSection.hidden = false;
 
